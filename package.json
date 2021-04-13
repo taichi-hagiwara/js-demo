@@ -1,0 +1,9 @@
+{
+  "name": "js-demo",
+  "scripts": {
+    "serve": "http-server"
+  },
+  "devDependencies": {
+    "http-server": "^0.12.3"
+  }
+}
