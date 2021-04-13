@@ -90,7 +90,14 @@
       const element = template.cloneNode(true);
       template.parentElement.appendChild(element);
       for (const e of element.querySelectorAll('[data-error]')) {
-        e.textContent = event.error.stack.toString();
+        switch (e.getAttribute('data-error')) {
+          case 'message':
+            e.textContent = event.error.toString();
+            break;
+          case 'stack':
+            e.textContent = event.error.stack.toString();
+            break;
+        }
       }
       element.classList.remove('hidden');
     });
@@ -178,7 +185,10 @@
           </ul>
         </li>
       </ul>
-      <div class="error hidden"><pre><code data-error></code></pre></div>
+      <div class="error hidden">
+        <p data-error="message"></p>
+        <pre><code data-error="stack"></code></pre>
+      </div>
     </div>
   </div>
 </body>
