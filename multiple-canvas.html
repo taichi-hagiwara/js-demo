@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+
+  <title>Multiple Canvas Rendering</title>
+  <script>
+    /**
+     * @type {OffscreenCanvas}
+     */
+    let osc;
+
+    /**
+     * @type {CanvasRenderingContext2D}
+     */
+    let context;
+
+    const scenes = {
+      1: {
+        start: performance.now() / 1000,
+        render () {
+          const now = performance.now() / 1000 - this.start;
+
+          const radius = Math.min(osc.width, osc.height) / 2;
+          const cx = osc.width / 2;
+          const cy = osc.height / 2;
+          context.fillStyle = 'rgba(0, 0, 255, 0.1)';
+          context.fillRect(0, 0, osc.width, osc.height);
+
+          context.beginPath();
+          for (let i = 0; i < Math.PI * 2; i += Math.PI * 2 / 3) {
+            const i2 = i + now;
+            if (i === 0) {
+              context.moveTo(Math.cos(i2) * radius + cx, Math.sin(i2) * radius + cy);
+            } else {
+              context.lineTo(Math.cos(i2) * radius + cx, Math.sin(i2) * radius + cy);
+            }
+          }
+          context.closePath();
+          context.stroke();
+        },
+      },
+      2: {
+        start: performance.now() / 1000,
+        render () {
+          const now = performance.now() / 1000 - this.start;
+
+          for (let i = 0; i < 10; i ++) {
+            const radius = Math.min(osc.width, osc.height) * (Math.sin(now + i) + 1) / 2 * 0.1;
+            const x = Math.cos((now * (3 + i) + i) / 7) * (osc.width / 2 - radius * 2) + osc.width / 2 + radius;
+            const y = Math.sin((now * (2 + i) + i * 2) / 5) * (osc.height / 2 - radius * 2) + osc.height / 2 + radius;
+            context.beginPath();
+            context.arc(x, y, radius, 0, 2 * Math.PI);
+            context.stroke();
+          }
+        },
+      },
+    };
+
+    /**
+     * @type {WeakMap<HTMLCanvasElement, ImageBitmapRenderingContext>}
+     */
+    const canvasContexts = new WeakMap();
+
+    const render = () => {
+      for (const elm of document.getElementsByTagName('canvas')) {
+        osc.width = elm.clientWidth * devicePixelRatio;
+        osc.height = elm.clientHeight * devicePixelRatio;
+        context.clearRect(0, 0, osc.width, osc.height);
+        scenes[elm.getAttribute('data-scene')].render();
+
+        const c = canvasContexts.get(elm) || elm.getContext('bitmaprenderer');
+        const bitmap = osc.transferToImageBitmap();
+        c.transferFromImageBitmap(bitmap)
+        canvasContexts.set(elm, c);
+      }
+      requestAnimationFrame(render);
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      osc = new OffscreenCanvas(128, 128);
+      context = osc.getContext('2d');
+      render();
+    });
+  </script>
+
+  <link rel="stylesheet" href="./basic.css" />
+
+  <style>
+    canvas {
+      position: fixed;
+    }
+
+    .canvas-group {
+      position: absolute;
+      z-index: 0;
+    }
+
+    .fullscreen {
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .quater {
+      top: 50%;
+      left: 50%;
+      width: 50%;
+      height: 50%;
+      backdrop-filter: blur(4px);
+      background: rgba(0, 255, 0, 0.1);
+      z-index: 1;
+    }
+
+    .introduction-wrapper {
+      display: grid;
+      justify-content: start;
+    }
+
+    .introduction {
+      width: auto;
+      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.1);
+      text-shadow: 2px 1px 3px rgba(255, 255, 255, 0.2);
+      padding: 1em 2em;
+    }
+
+    code {
+      padding: 0 0.2em;
+      user-select: all;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas-group">
+    <canvas class="fullscreen" data-scene="1"></canvas>
+    <canvas class="quater" data-scene="2"></canvas>
+  </div>
+  <div class="introduction-wrapper">
+    <div class="introduction">
+      <h1>Multiple Canvas Rendering Demo</h1>
+      <p>複数の<a href="https://developer.mozilla.org/ja/docs/Web/HTML/Element/canvas" target="_blank"><code>canvas</code>要素</a>に対して、単一の<a href="https://developer.mozilla.org/ja/docs/Web/API/CanvasRenderingContext2D" target="_blank"><code>RenderingContext</code></a>によって描画を行います。</p>
+      <ul>
+        <li>
+          <p>任意の数の<code>canvas</code>要素を同時に扱うことができます：</p>
+          <ul>
+            <li><p>1つのドキュメント内で保持できる<code>RenderingContext</code>の数は制限されていることがあります。</p></li>
+          </ul>
+        </li>
+        <li><p>複数の<code>canvas</code>要素でリソースを共有することができます。</p></li>
+        <li>
+          <p>複数の<code>canvas</code>要素の重なり合いが正しくレンダリングされます：</p>
+          <ul>
+            <li><code>background</code>や<code>backdrop-filter</code>等のCSSを自然に使用することができます。</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

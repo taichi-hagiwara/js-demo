@@ -1,0 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=Noto+Sans+JP&family=Varela+Round&display=swap');
+
+:root {
+  font-family: 'Noto Sans JP', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Varela Round', 'Kosugi Maru', sans-serif;
+}
+
+code {
+  font-family: 'Kosugi Maru', sans-serif;
+}
