@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+
+  <title>Multiple Canvas with Worker</title>
+
+  <script>
+    /**
+     * @type {OffscreenCanvas}
+     */
+    let osc;
+
+    /**
+     * @type {WeakMap<HTMLCanvasElement, ImageBitmapRenderingContext>}
+     */
+    const canvasContexts = new WeakMap();
+
+    const worker = new Worker('./worker.js');
+
+    const responseWaiter = {
+      next: 1,
+      /** @type {Map<number, any>} */
+      map: new Map(),
+      create () {
+        const key = this.next++;
+        const promise = new Promise(resolve => this.map.set(key, resolve));
+        return {
+          key,
+          promise,
+        };
+      },
+    };
+
+    worker.addEventListener('message', ex => {
+      const key = ex.data.completed;
+      const resolver = responseWaiter.map.get(key);
+      if (resolver) {
+        resolver(ex.data);
+        responseWaiter.map.delete(key);
+      }
+    }, false);
+
+    const render = () => {
+      /** @type {Promise[]} */
+      const promises = [];
+
+      for (const elm of document.getElementsByTagName('canvas')) {
+        const { key, promise } = responseWaiter.create();
+        worker.postMessage({
+          render: {
+            width: elm.clientWidth * devicePixelRatio,
+            height: elm.clientHeight * devicePixelRatio,
+            scene: elm.getAttribute('data-scene'),
+            responseKey: key,
+          },
+        });
+
+        promises.push(promise.then(data => {
+          const c = canvasContexts.get(elm) || elm.getContext('bitmaprenderer');
+          c.transferFromImageBitmap(data.bitmap)
+          canvasContexts.set(elm, c);
+        }));
+      }
+
+      Promise.all(promises).then(() => requestAnimationFrame(render));
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      osc = new OffscreenCanvas(128, 128);
+      worker.postMessage({
+        canvas: osc,
+      }, [osc]);
+      render();
+    });
+
+    window.addEventListener('error', event => {
+      const template = document.getElementsByClassName('error')[0];
+      /** @type {Element} */
+      const element = template.cloneNode(true);
+      template.parentElement.appendChild(element);
+      for (const e of element.querySelectorAll('[data-error]')) {
+        switch (e.getAttribute('data-error')) {
+          case 'message':
+            e.textContent = (event.error ?? event.message).toString();
+            break;
+          case 'stack':
+            e.textContent = event.error ? event.error.stack.toString() : `${event.filename}:${event.lineno}:${event.colno}`;
+            break;
+        }
+      }
+      element.classList.remove('hidden');
+    });
+  </script>
+
+  <link rel="stylesheet" href="../basic.css" />
+
+  <style>
+    canvas {
+      position: fixed;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .canvas-group {
+      position: absolute;
+      z-index: 0;
+    }
+
+    .fullscreen {
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .quater {
+      top: 50%;
+      left: 50%;
+      width: 50%;
+      height: 50%;
+      backdrop-filter: blur(4px);
+      background: rgba(0, 255, 0, 0.1);
+      z-index: 1;
+    }
+
+    .introduction-wrapper {
+      display: grid;
+      justify-content: start;
+    }
+
+    .introduction {
+      width: auto;
+      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.1);
+      text-shadow: 2px 1px 3px rgba(255, 255, 255, 0.2);
+      padding: 1em 2em;
+    }
+
+    code {
+      padding: 0 0.2em;
+      user-select: all;
+    }
+
+    .error {
+      color: #cc0000;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas-group">
+    <canvas class="fullscreen" data-scene="1"></canvas>
+    <canvas class="quater" data-scene="2"></canvas>
+  </div>
+  <div class="introduction-wrapper">
+    <div class="introduction">
+      <h1>Multiple Canvas Rendering with Worker Demo</h1>
+      <p><a href="https://github.com/taichi-hagiwara/js-demo/blob/main/multiple-canvas-worker">Source (GitHub)</a></p>
+      <p><a href="../multiple-canvas.html">Worker使わない版</a>のおまけ。</p>
+      <p>なんかフレームレート低くない？？？？</p>
+      <div class="error hidden">
+        <p data-error="message"></p>
+        <pre><code data-error="stack"></code></pre>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
