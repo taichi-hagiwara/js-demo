@@ -83,6 +83,17 @@
       context = osc.getContext('2d');
       render();
     });
+
+    window.addEventListener('error', event => {
+      const template = document.getElementsByClassName('error')[0];
+      /** @type {Element} */
+      const element = template.cloneNode(true);
+      template.parentElement.appendChild(element);
+      for (const e of element.querySelectorAll('[data-error]')) {
+        e.textContent = event.error.stack.toString();
+      }
+      element.classList.remove('hidden');
+    });
   </script>
 
   <link rel="stylesheet" href="./basic.css" />
@@ -132,6 +143,14 @@
       padding: 0 0.2em;
       user-select: all;
     }
+
+    .error {
+      color: #cc0000;
+    }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -158,6 +177,7 @@
           </ul>
         </li>
       </ul>
+      <div class="error hidden"><pre><code data-error></code></pre></div>
     </div>
   </div>
 </body>
