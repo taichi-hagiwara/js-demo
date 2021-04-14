@@ -1,14 +1,16 @@
 const scenes = {
   1: {
     start: performance.now() / 1000,
-    render ({ osc, context }) {
+    width: 0,
+    height: 0,
+    render (context) {
       const now = performance.now() / 1000 - this.start;
 
-      const radius = Math.min(osc.width, osc.height) / 2;
-      const cx = osc.width / 2;
-      const cy = osc.height / 2;
+      const radius = Math.min(this.width, this.height) / 2;
+      const cx = this.width / 2;
+      const cy = this.height / 2;
       context.fillStyle = 'rgba(0, 0, 255, 0.1)';
-      context.fillRect(0, 0, osc.width, osc.height);
+      context.fillRect(0, 0, this.width, this.height);
 
       context.beginPath();
       for (let i = 0; i < Math.PI * 2; i += Math.PI * 2 / 3) {
@@ -25,13 +27,15 @@ const scenes = {
   },
   2: {
     start: performance.now() / 1000,
-    render ({ osc, context }) {
+    width: 0,
+    height: 0,
+    render (context) {
       const now = performance.now() / 1000 - this.start;
 
       for (let i = 0; i < 10; i ++) {
-        const radius = Math.min(osc.width, osc.height) * (Math.sin(now + i) + 1) / 2 * 0.1;
-        const x = Math.cos((now * (3 + i) + i) / 7) * (osc.width / 2 - radius * 2) + osc.width / 2 + radius;
-        const y = Math.sin((now * (2 + i) + i * 2) / 5) * (osc.height / 2 - radius * 2) + osc.height / 2 + radius;
+        const radius = Math.min(this.width, this.height) * (Math.sin(now + i) + 1) / 2 * 0.1;
+        const x = Math.cos((now * (3 + i) + i) / 7) * (this.width / 2 - radius * 2) + this.width / 2 + radius;
+        const y = Math.sin((now * (2 + i) + i * 2) / 5) * (this.height / 2 - radius * 2) + this.height / 2 + radius;
         context.beginPath();
         context.arc(x, y, radius, 0, 2 * Math.PI);
         context.stroke();
@@ -56,22 +60,14 @@ const callbacks = {
   },
   /**
    * @param {object} data
+   * @param {string} data.scene Key of scene
    * @param {number} data.width Width of target canvas
    * @param {number} data.height Height of target canvas
-   * @param {string} data.scene Key of scene
-   * @param {any} data.responseKey
    */
-  render (data) {
-    if (this.osc) {
-      this.osc.width = data.width;
-      this.osc.height = data.height;
-      this.context.clearRect(0, 0, data.width, data.height);
-      data.scene in scenes && scenes[data.scene].render(this);
-    }
-    self.postMessage({
-      completed: data.responseKey,
-      bitmap: this.osc.transferToImageBitmap(),
-    });
+  resize (data) {
+    scenes[data.scene].width = data.width;
+    scenes[data.scene].height = data.height;
+    console.log(`Canvas ${data.scene} resized: (${data.width}, ${data.height})`);
   },
 };
 
@@ -82,3 +78,38 @@ self.addEventListener('message', e => {
     }
   });
 }, false);
+
+let fps = 0;
+let count = 0;
+let sec = Math.floor(performance.now() / 1000);
+
+const render = () => {
+  const sec2 = Math.floor(performance.now() / 1000);
+  if (sec === sec2) {
+    count ++;
+  } else {
+    [fps, count, sec] = [count, 0, sec2];
+    self.postMessage({
+      reportFramerate: fps,
+    });
+  }
+
+  Object.entries(scenes).forEach(([key, value]) => {
+    if (callbacks.osc && value.width && value.height) {
+      callbacks.osc.width = value.width;
+      callbacks.osc.height = value.height;
+      callbacks.context.clearRect(0, 0, value.width, value.height);
+      value.render(callbacks.context);
+      self.postMessage({
+        rendered: {
+          scene: key,
+          bitmap: callbacks.osc.transferToImageBitmap(),
+        },
+      });
+    }
+  });
+
+  requestAnimationFrame(render);
+};
+
+render();

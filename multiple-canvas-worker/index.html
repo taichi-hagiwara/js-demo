@@ -20,60 +20,57 @@
 
     const worker = new Worker('./worker.js');
 
-    const responseWaiter = {
-      next: 1,
-      /** @type {Map<number, any>} */
-      map: new Map(),
-      create () {
-        const key = this.next++;
-        const promise = new Promise(resolve => this.map.set(key, resolve));
-        return {
-          key,
-          promise,
-        };
-      },
-    };
-
     worker.addEventListener('message', ex => {
-      const key = ex.data.completed;
-      const resolver = responseWaiter.map.get(key);
-      if (resolver) {
-        resolver(ex.data);
-        responseWaiter.map.delete(key);
+      if (ex.data.rendered) {
+        const canvas = document.querySelector(`canvas[data-scene="${ex.data.rendered.scene}"]`);
+
+        const context = canvasContexts.get(canvas) || canvas.getContext('bitmaprenderer');
+        canvasContexts.set(canvas, context);
+        context.transferFromImageBitmap(ex.data.rendered.bitmap)
+      }
+
+      if ('reportFramerate' in ex.data) {
+        document.querySelectorAll('[data-fps]').forEach(element => (element.textContent = ex.data.reportFramerate));
       }
     }, false);
 
-    const render = () => {
-      /** @type {Promise[]} */
-      const promises = [];
-
-      for (const elm of document.getElementsByTagName('canvas')) {
-        const { key, promise } = responseWaiter.create();
-        worker.postMessage({
-          render: {
-            width: elm.clientWidth * devicePixelRatio,
-            height: elm.clientHeight * devicePixelRatio,
-            scene: elm.getAttribute('data-scene'),
-            responseKey: key,
-          },
-        });
-
-        promises.push(promise.then(data => {
-          const c = canvasContexts.get(elm) || elm.getContext('bitmaprenderer');
-          c.transferFromImageBitmap(data.bitmap)
-          canvasContexts.set(elm, c);
-        }));
+    let fps2 = 0;
+    let count2 = 0;
+    let sec2 = Math.floor(performance.now() / 1000);
+    const measureFPS = () => {
+      const sec22 = Math.floor(performance.now() / 1000);
+      if (sec22 === sec2) {
+        count2 ++;
+      } else {
+        [fps2, count2, sec2] = [count2, 0, sec22];
+        document.querySelectorAll('[data-fps2]').forEach(element => (element.textContent = fps2));
       }
-
-      Promise.all(promises).then(() => requestAnimationFrame(render));
+      requestAnimationFrame(measureFPS);
     };
 
+    const observer = new ResizeObserver(ev => {
+      ev.forEach(entry => {
+        /** @type {HTMLCanvasElement} */
+        const canvas = entry.target;
+        worker.postMessage({
+          resize: {
+            scene: canvas.getAttribute('data-scene'),
+            width: canvas.clientWidth * devicePixelRatio,
+            height: canvas.clientHeight * devicePixelRatio,
+          },
+        });
+      });
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('canvas').forEach(e => observer.observe(e));
+
       osc = new OffscreenCanvas(128, 128);
       worker.postMessage({
         canvas: osc,
       }, [osc]);
-      render();
+
+      measureFPS();
     });
 
     window.addEventListener('error', event => {
@@ -164,7 +161,7 @@
       <h1>Multiple Canvas Rendering with Worker Demo</h1>
       <p><a href="https://github.com/taichi-hagiwara/js-demo/blob/main/multiple-canvas-worker">Source (GitHub)</a></p>
       <p><a href="../multiple-canvas.html">Worker使わない版</a>のおまけ。</p>
-      <p>なんかフレームレート低くない？？？？</p>
+      <p>なんかフレームレート低くない？？？？ (<span data-fps>0</span>/<span data-fps2>0</span>fps)</p>
       <div class="error hidden">
         <p data-error="message"></p>
         <pre><code data-error="stack"></code></pre>
