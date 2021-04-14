@@ -94,18 +94,14 @@ const render = () => {
     });
   }
 
-  Object.entries(scenes).forEach(([key, value]) => {
+  Object.entries(scenes).forEach(([scene, value]) => {
     if (callbacks.osc && value.width && value.height) {
       callbacks.osc.width = value.width;
       callbacks.osc.height = value.height;
       callbacks.context.clearRect(0, 0, value.width, value.height);
       value.render(callbacks.context);
-      self.postMessage({
-        rendered: {
-          scene: key,
-          bitmap: callbacks.osc.transferToImageBitmap(),
-        },
-      });
+      const bitmap = callbacks.osc.transferToImageBitmap()
+      self.postMessage({ rendered: { scene, bitmap } }, [bitmap]);
     }
   });
 
