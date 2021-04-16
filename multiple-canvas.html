@@ -6,6 +6,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" />
 
   <title>Multiple Canvas</title>
+  <script src="./fps-measure.js"></script>
   <script>
     /**
      * @type {OffscreenCanvas}
@@ -161,6 +162,15 @@
     .hidden {
       display: none;
     }
+
+    .fps-measure {
+      position: fixed;
+      right: 0.5em;
+      bottom: 0.5em;
+      padding: 0.5em 1em;
+      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.1);
+    }
   </style>
 </head>
 <body>
@@ -194,6 +204,9 @@
         <pre><code data-error="stack"></code></pre>
       </div>
     </div>
+  </div>
+  <div class="fps-measure">
+    <span data-fps="root"></span>fps
   </div>
 </body>
 </html>
